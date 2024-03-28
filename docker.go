@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
@@ -55,7 +54,7 @@ func build_package(pkg Package, srcdir, pkgdir, arch string) error {
 		return err
 	}
 
-	start_opts := types.ContainerStartOptions{}
+	start_opts := container.StartOptions{}
 
 	cli.ContainerStart(ctx, con.ID, start_opts)
 
@@ -64,7 +63,7 @@ func build_package(pkg Package, srcdir, pkgdir, arch string) error {
 		return err
 	}
 
-	rm_opts := types.ContainerRemoveOptions{
+	rm_opts := container.RemoveOptions{
 		Force: true,
 	}
 
@@ -101,7 +100,7 @@ func check_result(cli *client.Client, ctx context.Context, id string) error {
 
 // Dump logs from a build.
 func dump_logs(cli *client.Client, ctx context.Context, id string) {
-	conf := types.ContainerLogsOptions{
+	conf := container.LogsOptions{
 		ShowStdout: true,
 	}
 
