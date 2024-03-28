@@ -28,31 +28,31 @@ func debug(str string) {
 }
 
 // Identify Packages in the package source directory.
-func list_package_sources(local_dir string) ([]Package, error) {
+func list_package_sources(local_dir string) []Package {
 	packages, err := walk_package_sources(local_dir)
 	if (err != nil) {
-		return nil, err
+		debug(err.Error())
 	}
 
 	if (*verbose == true) {
 		dump_apkbuilds(packages, "DEBUG-MAIN")
 	}
 
-	return packages, nil
+	return packages
 }
 
 // Identify Packages in the repository.
-func list_repository(remote_dir string) ([]Package, error) {
+func list_repository(remote_dir string) []Package {
 	packages, err := fetch_repository_listing(remote_dir)
 	if (err != nil) {
-		return nil, err
+		debug(err.Error())
 	}
 
 	if (*verbose == true) {
 		dump_apkbuilds(packages, "DEBUG-MAIN")
 	}
 
-	return packages, nil
+	return packages
 }
 
 // Compare Packages between the package source directory and the repository.
@@ -60,18 +60,11 @@ func compare_lists(local_dir, remote_dir string) ([]Package, error) {
 	queue := []Package{}
 	had_errors := false
 
-	package_sources, err := list_package_sources(local_dir)
-	if (err != nil) {
-		return nil, err
-	}
-
-	repository, err := list_repository(remote_dir)
-	if (err != nil) {
-		return nil, err
-	}
+	package_sources := list_package_sources(local_dir)
+	repository := list_repository(remote_dir)
 
 	for i, _ := range package_sources {
-		err = find_builds(&package_sources[i], &repository)
+		err := find_builds(&package_sources[i], &repository)
 		if (err != nil) {
 			return nil, err
 		}
@@ -87,7 +80,7 @@ func compare_lists(local_dir, remote_dir string) ([]Package, error) {
 		}
 	}
 
-	err = find_breaking_builds(&queue)
+	err := find_breaking_builds(&queue)
 	if (err != nil) {
 		return nil, err
 	}
