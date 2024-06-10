@@ -113,6 +113,8 @@ func parse_rsync_line(line string) ([]Package, error) {
 func push_package(pkg Package, local_dir, remote_dir string) error {
 	local_name := path.Join(local_dir, expected_apk(pkg))
 
+	// TODO: this does not work with subpackages!
+	// Either need to make the local name fuzzy, or need to update the Package type to hold a list of all subpackages
 	debug(fmt.Sprintf("DEBUG-RSYNC:rsync %s %s", local_name, remote_dir))
 	cmd := exec.Command("rsync", local_name, remote_dir)
 	err := cmd.Run()

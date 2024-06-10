@@ -55,20 +55,18 @@ func build_package(pkg Package, srcdir, pkgdir, arch string) error {
 	}
 
 	start_opts := container.StartOptions{}
-
 	cli.ContainerStart(ctx, con.ID, start_opts)
 
 	err = check_result(cli, ctx, con.ID)
-	if (err != nil) {
-		return err
-	}
 
 	rm_opts := container.RemoveOptions{
 		Force: true,
 	}
-
 	cli.ContainerRemove(ctx, con.ID, rm_opts)
 
+	if (err != nil) {
+		return err
+	}
 	return nil
 }
 
