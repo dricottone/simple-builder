@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bufio"
+	"encoding/binary"
 	"context"
 	"errors"
 	"fmt"
@@ -108,9 +108,22 @@ func dump_logs(cli *client.Client, ctx context.Context, id string) {
 	}
 	defer out.Close()
 
-	scanner := bufio.NewScanner(out)
-	for scanner.Scan() {
-		fmt.Println(scanner.Text())
+	// Docker log lines have an 8-byte header
+	//  + First byte is stream identifier (e.g., 1=STDOUT)
+	//  + Next three bytes unused (for now)
+	//  + Final four bytes are length of message
+	header := make([]byte, 8)
+	for {
+		_, err := out.Read(header)
+		if err != nil {
+			panic(err)
+		}
+
+		length := binary.BigEndian.Uint32(header[4:])
+
+		msg := make([]byte, length)
+		_, err = out.Read(msg)
+		fmt.Printf(string(msg))
 	}
 }
 

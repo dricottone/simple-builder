@@ -1,5 +1,10 @@
+BIN_DIR?=/usr/local/bin
+
+INSTALL_FLAGS?=
+INSTALL_FLAGS+=--mode=755
+
 go.mod:
-	go mod init git.dominic-ricottone.com/~dricottone/simple-builder
+	go mod init git.sr.ht/~dricottone/simple-builder
 	go get github.com/docker/docker/client
 	go get github.com/docker/docker/api/types/container
 	go get github.com/docker/docker/api/types/mount
@@ -13,11 +18,10 @@ build: simple-builder
 clean:
 	rm -f go.mod go.sum simple-builder
 
-uninstall:
-	rm -f ~/.local/bin/simple-builder
-
-PWD=$(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 install:
-	ln -s $(PWD)simple-builder ~/.local/bin/simple-builder
+	install --target-directory=$(BIN_DIR) $(INSTALL_FLAGS) simple-builder
 
-.PHONY: build clean install
+uninstall:
+	cd $(BIN_DIR) && rm simple-builder
+
+.PHONY: build clean install uninstall
