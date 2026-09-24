@@ -8,9 +8,9 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/client"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/mount"
+	"github.com/moby/moby/client"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -24,46 +24,45 @@ func build_package(pkg Package, srcdir, pkgdir, arch string) error {
 		return err
 	}
 
-	conf := container.Config{
-		Image: "registry.intra.dominic-ricottone.com/apkbuilder:latest",
-		Cmd: []string{pkg.Name},
-	}
-
-	con_conf := container.HostConfig{
-		Mounts: []mount.Mount{
-			{
-				Type: mount.TypeBind,
-				Source: srcdir,
-				Target: "/home/builder/src",
-			},
-			{
-				Type: mount.TypeBind,
-				Source: pkgdir,
-				Target: "/home/builder/packages/src",
+	create_opts := client.ContainerCreateOptions{
+		Config: &container.Config{
+			Image: "registry.intra.dominic-ricottone.com/apkbuilder:latest",
+			Cmd: []string{pkg.Name},
+		},
+		HostConfig: &container.HostConfig{
+			Mounts: []mount.Mount{
+				{
+					Type: mount.TypeBind,
+					Source: srcdir,
+					Target: "/home/builder/src",
+				},
+				{
+					Type: mount.TypeBind,
+					Source: pkgdir,
+					Target: "/home/builder/packages/src",
+				},
 			},
 		},
+		Platform: &specs.Platform{
+			Architecture: arch,
+			OS: "linux",
+		},
+		Name: "",
 	}
 
-	plats := specs.Platform{
-		Architecture: arch,
-		OS: "linux",
-	}
-
-	con, err := cli.ContainerCreate(ctx, &conf, &con_conf, nil, &plats, "")
+	con, err := cli.ContainerCreate(ctx, create_opts)
 	if (err != nil) {
 		return err
 	}
 
-	start_opts := container.StartOptions{}
-	cli.ContainerStart(ctx, con.ID, start_opts)
-
+	cli.ContainerStart(ctx, con.ID, client.ContainerStartOptions{})
 	err = check_result(cli, ctx, con.ID)
 
-	rm_opts := container.RemoveOptions{
+	rm_opts := client.ContainerRemoveOptions{
 		Force: true,
 	}
-	cli.ContainerRemove(ctx, con.ID, rm_opts)
 
+	cli.ContainerRemove(ctx, con.ID, rm_opts)
 	if (err != nil) {
 		return err
 	}
@@ -72,21 +71,24 @@ func build_package(pkg Package, srcdir, pkgdir, arch string) error {
 
 // Get the result of a build. Blocks until the build is complete.
 func check_result(cli *client.Client, ctx context.Context, id string) error {
-	statusC, errC := cli.ContainerWait(ctx, id, container.WaitConditionNotRunning)
+	opts := client.ContainerWaitOptions{
+		Condition: container.WaitConditionNotRunning,
+	}
+	wait := cli.ContainerWait(ctx, id, opts)
 
-	sigC := make(chan os.Signal)
-	signal.Notify(sigC, os.Interrupt)
+	sig := make(chan os.Signal)
+	signal.Notify(sig, os.Interrupt)
 
 	select {
-	case _ = <-sigC:
+	case _ = <-sig:
 		return errors.New("Build interrupted")
 
-	case err := <-errC:
+	case err := <-wait.Error:
 		if (err != nil) {
 			return err
 		}
 
-	case status := <-statusC:
+	case status := <-wait.Result:
 		if status.StatusCode != 0 {
 			dump_logs(cli, ctx, id)
 			return errors.New("Build failed")
@@ -98,11 +100,10 @@ func check_result(cli *client.Client, ctx context.Context, id string) error {
 
 // Dump logs from a build.
 func dump_logs(cli *client.Client, ctx context.Context, id string) {
-	conf := container.LogsOptions{
+	opts := client.ContainerLogsOptions{
 		ShowStdout: true,
 	}
-
-	out, err := cli.ContainerLogs(ctx, id, conf)
+	out, err := cli.ContainerLogs(ctx, id, opts)
 	if err != nil {
 		panic(err)
 	}
